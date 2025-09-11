@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Demo: Cifrado Simétrico (AES-GCM) — Toy</title>
+    <style>
+      :root {
+        --bg: #0f1724;
+        --card: #0b1220;
+        --accent: #06b6d4;
+        --muted: #94a3b8;
+      }
+      body {
+        font-family: Inter, ui-sans-serif, system-ui, Segoe UI, Roboto,
+          "Helvetica Neue", Arial;
+        margin: 0;
+        background: linear-gradient(180deg, #071024 0%, #081826 100%);
+        color: #e6eef6;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+      .container {
+        width: 100%;
+        max-width: 900px;
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.02),
+          rgba(255, 255, 255, 0.01)
+        );
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 8px 30px rgba(2, 6, 23, 0.6);
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 20px;
+      }
+      p.desc {
+        margin: 0 0 16px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .tab {
+        padding: 8px 14px;
+        border-radius: 8px;
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.03);
+        cursor: pointer;
+      }
+      .tab.active {
+        background: linear-gradient(
+          90deg,
+          rgba(6, 182, 212, 0.12),
+          rgba(34, 197, 94, 0.06)
+        );
+        border-color: rgba(6, 182, 212, 0.25);
+        color: var(--accent);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 340px;
+        gap: 16px;
+      }
+      .card {
+        background: rgba(0, 0, 0, 0.25);
+        padding: 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.03);
+      }
+      label {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+      input[type="text"],
+      textarea,
+      input[type="password"] {
+        width: 100%;
+        padding: 8px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        background: transparent;
+        color: inherit;
+        min-height: 40px;
+      }
+      textarea {
+        min-height: 140px;
+        resize: vertical;
+        padding: 10px;
+      }
+      .btn {
+        display: inline-block;
+        padding: 10px 14px;
+        border-radius: 8px;
+        background: var(--accent);
+        color: #042027;
+        border: none;
+        cursor: pointer;
+        margin-top: 8px;
+      }
+      .muted {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .out {
+        word-break: break-all;
+        background: rgba(255, 255, 255, 0.02);
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px dashed rgba(255, 255, 255, 0.03);
+        min-height: 60px;
+      }
+      .small {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      footer {
+        margin-top: 12px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .hid {
+        display: none;
+      }
+      .copy-btn {
+        margin-left: 8px;
+        padding: 6px 8px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.02);
+        cursor: pointer;
+        color: var(--muted);
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .eye-btn {
+        margin-left: 6px;
+        background: none;
+        border: none;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 16px;
+        line-height: 1;
+        padding: 0 4px;
+        user-select: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container" role="main">
+      <h1>Cifrado simétrico — Demo (AES-GCM)</h1>
+      <p class="desc">
+        Rápido prototipo educativo: ingresa un texto y una passphrase para
+        cifrar; para descifrar introduce la misma passphrase y el blob
+        resultante.
+      </p>
+
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="encrypt">Cifrar</button>
+        <button class="tab" data-tab="decrypt">Descifrar</button>
+      </div>
+
+      <div class="grid">
+        <div class="card" id="panel-encrypt">
+          <label>Texto a cifrar</label>
+          <textarea
+            id="plain"
+            placeholder="Escribe la contraseña o texto aquí..."
+          >
+miPasswordSecreto123</textarea
+          >
+
+          <label style="margin-top: 8px"
+            >Passphrase (clave para derivar la key)</label
+          >
+          <div style="display:flex; align-items:center;">
+            <input
+              id="pass"
+              type="text"
+              placeholder="Clave secreta generada automáticamente"
+              readonly
+            />
+          </div>
+          <div class="row" style="margin-top: 6px;">
+            <button class="copy-btn" id="btnCopySecret">Copiar clave secreta</button>
+          </div>
+
+          <div class="row" style="margin-top: 10px">
+            <button class="btn" id="btnEncrypt">Cifrar</button>
+            <button class="copy-btn" id="btnCopyEncrypted">Copiar resultado cifrado</button>
+          </div>
+
+          <div style="margin-top: 12px">
+            <label
+              >Resultado (blob Base64URL — contiene salt|iv|ciphertext)</label
+            >
+            <div class="out" id="cipherOut" contenteditable="false"></div>
+            <div class="small" style="margin-top: 6px">
+              Formato: <code>base64url(salt||iv||ciphertext)</code>. Salt=16
+              bytes, IV=12 bytes.
+            </div>
+          </div>
+        </div>
+
+        <div class="card" id="panel-decrypt" style="display: none">
+          <label>Blob cifrado (base64url)</label>
+          <textarea
+            id="cipherIn"
+            placeholder="Pega aquí el blob que generó el cifrado"
+          ></textarea>
+
+          <label style="margin-top: 8px"
+            >Passphrase (misma que usaste para cifrar)</label
+          >
+          <div style="display:flex; align-items:center;">
+            <input
+              id="passDec"
+              type="password"
+              placeholder="la misma passphrase"
+            />
+            <button type="button" class="eye-btn" aria-label="Mostrar contraseña" data-target="passDec">👁️</button>
+          </div>
+
+          <div class="row" style="margin-top: 10px">
+            <button class="btn" id="btnDecrypt">Descifrar</button>
+            <button class="copy-btn" id="btnCopyCipher">
+              Pegar desde portapapeles
+            </button>
+          </div>
+
+          <div style="margin-top: 12px">
+            <label>Texto descifrado</label>
+            <div class="out" id="plainOut"></div>
+          </div>
+        </div>
+      </div>
+
+      <footer>
+        <div>
+          <strong>Nota:</strong> esto es un <em>demo educativo</em>. No usar en
+          producción sin revisar prácticas seguras (HTTPS, controles, no enviar
+          secrets a servidores no confiables).
+        </div>
+      </footer>
+    </div>
+
+    <script>
+      /* ---------- helpers: Base64URL ---------------- */
+      function toBase64Url(bytes) {
+        const b64 = btoa(String.fromCharCode(...bytes));
+        return b64
+          .replaceAll("+", "-")
+          .replaceAll("/", "_")
+          .replaceAll("=", "");
+      }
+      function fromBase64Url(b64url) {
+        // add padding
+        let s = b64url.replaceAll("-", "+").replaceAll("_", "/");
+        while (s.length % 4) s += "=";
+        const bin = atob(s);
+        const arr = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+        return arr;
+      }
+
+      /* ---------- crypto utilities (Web Crypto) ---------------- */
+      const enc = new TextEncoder();
+      const dec = new TextDecoder();
+
+      async function deriveKeyFromPassphrase(
+        passphrase,
+        salt,
+        iterations = 150000
+      ) {
+        // PBKDF2 -> AES-GCM 256
+        const passKey = await crypto.subtle.importKey(
+          "raw",
+          enc.encode(passphrase),
+          { name: "PBKDF2" },
+          false,
+          ["deriveKey"]
+        );
+        const key = await crypto.subtle.deriveKey(
+          {
+            name: "PBKDF2",
+            salt,
+            iterations,
+            hash: "SHA-256",
+          },
+          passKey,
+          { name: "AES-GCM", length: 256 },
+          true,
+          ["encrypt", "decrypt"]
+        );
+        return key;
+      }
+
+      function randomBytes(n) {
+        const a = new Uint8Array(n);
+        crypto.getRandomValues(a);
+        return a;
+      }
+
+      async function encryptText(plainText, passphrase) {
+        const salt = randomBytes(16); // 16 bytes salt
+        const iv = randomBytes(12); // 12 bytes IV for AES-GCM
+        const key = await deriveKeyFromPassphrase(passphrase, salt);
+        const ct = await crypto.subtle.encrypt(
+          { name: "AES-GCM", iv },
+          key,
+          enc.encode(plainText)
+        );
+        // concat salt + iv + ciphertext
+        const ctArr = new Uint8Array(ct);
+        const out = new Uint8Array(salt.length + iv.length + ctArr.length);
+        out.set(salt, 0);
+        out.set(iv, salt.length);
+        out.set(ctArr, salt.length + iv.length);
+        return { blob: toBase64Url(out), secret: passphrase };
+      }
+
+      async function decryptBlob(blobB64Url, passphrase) {
+        const data = fromBase64Url(blobB64Url);
+        if (data.length < 16 + 12 + 16) {
+          throw new Error("Blob demasiado corto o corrupto");
+        }
+        const salt = data.slice(0, 16);
+        const iv = data.slice(16, 28);
+        const ciphertext = data.slice(28);
+        const key = await deriveKeyFromPassphrase(passphrase, salt);
+        try {
+          const plainBuf = await crypto.subtle.decrypt(
+            { name: "AES-GCM", iv },
+            key,
+            ciphertext.buffer
+          );
+          return dec.decode(plainBuf);
+        } catch (e) {
+          throw new Error("Error al descifrar — passphrase incorrecta o blob corrupto");
+        }
+      }
+
+      /* ---------- UI wiring ---------- */
+      const tabs = document.querySelectorAll(".tab");
+      tabs.forEach((t) => {
+        t.addEventListener("click", () => {
+          document
+            .querySelectorAll(".tab")
+            .forEach((x) => x.classList.remove("active"));
+          t.classList.add("active");
+          const target = t.dataset.tab;
+          document.getElementById("panel-encrypt").style.display =
+            target === "encrypt" ? "" : "none";
+          document.getElementById("panel-decrypt").style.display =
+            target === "decrypt" ? "" : "none";
+        });
+      });
+
+      const btnEncrypt = document.getElementById("btnEncrypt");
+      const cipherOut = document.getElementById("cipherOut");
+      const passInput = document.getElementById("pass");
+      btnEncrypt.addEventListener("click", async () => {
+        cipherOut.textContent = "Procesando...";
+        try {
+          const plain = document.getElementById("plain").value || "";
+          if (!plain) {
+            cipherOut.textContent = "Introduce texto para cifrar.";
+            return;
+          }
+          // Generate random 16-byte secret key (Base64URL)
+          const secretBytes = randomBytes(16);
+          const secret = toBase64Url(secretBytes);
+          passInput.value = secret;
+          const { blob } = await encryptText(plain, secret);
+          cipherOut.textContent = blob;
+        } catch (err) {
+          cipherOut.textContent = "Error: " + err.message;
+        }
+      });
+
+      const btnDecrypt = document.getElementById("btnDecrypt");
+      const plainOut = document.getElementById("plainOut");
+      btnDecrypt.addEventListener("click", async () => {
+        plainOut.textContent = "Procesando...";
+        try {
+          const blob = document.getElementById("cipherIn").value.trim();
+          const pass = document.getElementById("passDec").value || "";
+          if (!pass || !blob) {
+            plainOut.textContent = "Introduce passphrase y blob cifrado.";
+            return;
+          }
+          const res = await decryptBlob(blob, pass);
+          plainOut.textContent = res;
+        } catch (err) {
+          plainOut.textContent = "Error: " + err.message;
+        }
+      });
+
+      /* small helpers */
+      document.getElementById("btnCopyEncrypted").addEventListener("click", () => {
+        const blob = document.getElementById("cipherOut").textContent.trim();
+        if (!blob) {
+          alert("No hay resultado cifrado para copiar.");
+          return;
+        }
+        navigator.clipboard
+          .writeText(blob)
+          .then(() => alert("Resultado cifrado copiado al portapapeles"))
+          .catch(() => alert("No se pudo copiar"));
+      });
+      document
+        .getElementById("btnCopyCipher")
+        .addEventListener("click", async () => {
+          try {
+            const text = await navigator.clipboard.readText();
+            document.getElementById("cipherIn").value = text;
+          } catch {
+            alert(
+              "No se pudo leer portapapeles (permiso denegado en este navegador)."
+            );
+          }
+        });
+
+      document.getElementById("btnCopySecret").addEventListener("click", () => {
+        const secret = passInput.value || "";
+        if (!secret) {
+          alert("No hay clave secreta para copiar.");
+          return;
+        }
+        navigator.clipboard.writeText(secret)
+          .then(() => alert("Clave secreta copiada al portapapeles"))
+          .catch(() => alert("No se pudo copiar la clave secreta"));
+      });
+
+      /* ojito toggle for password fields */
+      document.querySelectorAll(".eye-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const targetId = btn.getAttribute("data-target");
+          const input = document.getElementById(targetId);
+          if (!input) return;
+          if (input.type === "password") {
+            input.type = "text";
+            btn.textContent = "🙈";
+            btn.setAttribute("aria-label", "Ocultar contraseña");
+          } else {
+            input.type = "password";
+            btn.textContent = "👁️";
+            btn.setAttribute("aria-label", "Mostrar contraseña");
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
