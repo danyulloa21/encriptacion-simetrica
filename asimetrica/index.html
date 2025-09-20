@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cifrado Asimétrico</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+
+        body {
+            background-color: #f0f2f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #1a73e8;
+            margin-bottom: 30px;
+        }
+
+        h2 {
+            color: #202124;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f2f5;
+        }
+
+        .operations-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .operation-section {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .key-generation {
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #e8f0fe;
+            border-radius: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #5f6368;
+            font-weight: bold;
+        }
+
+        textarea, input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #dadce0;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        textarea[readonly] {
+            background-color: #f8f9fa;
+            cursor: pointer;
+        }
+
+        .key-display textarea {
+            min-height: 60px;
+        }
+
+        button {
+            padding: 12px 24px;
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+            width: 100%;
+        }
+
+        button:hover {
+            background-color: #1557b0;
+            transform: translateY(-1px);
+        }
+
+        .copy-button {
+            background-color: #34a853;
+            margin-top: 5px;
+        }
+
+        .copy-button:hover {
+            background-color: #2d8e47;
+        }
+
+        .help-text {
+            font-size: 0.9em;
+            color: #5f6368;
+            margin-top: 5px;
+            font-style: italic;
+        }
+
+        .result-box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fff;
+            border: 1px solid #dadce0;
+            border-radius: 5px;
+        }
+
+        .status-message {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .status-message.success {
+            background-color: #e6f4ea;
+            color: #1e8e3e;
+            display: block;
+        }
+
+        .status-message.error {
+            background-color: #fce8e6;
+            color: #d93025;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Cifrado Asimétrico</h1>
+        
+        <div class="key-generation">
+            <h2>Generación de Par de Claves</h2>
+            <button id="generateKeys">Generar Nuevo Par de Claves</button>
+            <div class="help-text">
+                Guarda estas claves de forma segura. Las necesitarás para encriptar y desencriptar mensajes.
+            </div>
+            <div class="key-display">
+                <div class="form-group">
+                    <label>Clave Pública (para encriptar)</label>
+                    <textarea id="publicKey" readonly></textarea>
+                    <button class="copy-button" data-clipboard="publicKey">Copiar Clave Pública</button>
+                </div>
+                <div class="form-group">
+                    <label>Clave Privada (para desencriptar)</label>
+                    <textarea id="privateKey" readonly></textarea>
+                    <button class="copy-button" data-clipboard="privateKey">Copiar Clave Privada</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="operations-container">
+            <div class="operation-section">
+                <h2>Encriptar Mensaje</h2>
+                <div class="form-group">
+                    <label>Mensaje a Encriptar</label>
+                    <textarea id="encryptMessage" placeholder="Escribe el mensaje que quieres encriptar"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Clave Pública (para encriptar)</label>
+                    <textarea id="encryptKey" placeholder="Pega aquí la clave pública del destinatario"></textarea>
+                    <div class="help-text">Usa la clave pública de la persona a quien quieres enviar el mensaje</div>
+                </div>
+                <button id="encrypt">Encriptar Mensaje</button>
+                <div id="encryptResult" class="result-box">
+                    <label>Mensaje Encriptado:</label>
+                    <textarea id="encryptedText" readonly></textarea>
+                    <button class="copy-button" data-clipboard="encryptedText">Copiar Mensaje Encriptado</button>
+                </div>
+                <div id="encryptStatus" class="status-message"></div>
+            </div>
+
+            <div class="operation-section">
+                <h2>Desencriptar Mensaje</h2>
+                <div class="form-group">
+                    <label>Mensaje Encriptado</label>
+                    <textarea id="decryptMessage" placeholder="Pega aquí el mensaje encriptado que recibiste"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Tu Clave Privada (para desencriptar)</label>
+                    <textarea id="decryptKey" placeholder="Pega aquí tu clave privada"></textarea>
+                    <div class="help-text">Usa tu clave privada para desencriptar mensajes enviados a ti</div>
+                </div>
+                <button id="decrypt">Desencriptar Mensaje</button>
+                <div id="decryptResult" class="result-box">
+                    <label>Mensaje Original:</label>
+                    <textarea id="decryptedText" readonly></textarea>
+                    <button class="copy-button" data-clipboard="decryptedText">Copiar Mensaje Original</button>
+                </div>
+                <div id="decryptStatus" class="status-message"></div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // Referencias a elementos del DOM
+        const generateKeysBtn = document.getElementById('generateKeys');
+        const publicKeyTextarea = document.getElementById('publicKey');
+        const privateKeyTextarea = document.getElementById('privateKey');
+        
+        // Elementos de encriptación
+        const encryptMessageInput = document.getElementById('encryptMessage');
+        const encryptKeyInput = document.getElementById('encryptKey');
+        const encryptBtn = document.getElementById('encrypt');
+        const encryptedText = document.getElementById('encryptedText');
+        const encryptStatus = document.getElementById('encryptStatus');
+
+        // Elementos de desencriptación
+        const decryptMessageInput = document.getElementById('decryptMessage');
+        const decryptKeyInput = document.getElementById('decryptKey');
+        const decryptBtn = document.getElementById('decrypt');
+        const decryptedText = document.getElementById('decryptedText');
+        const decryptStatus = document.getElementById('decryptStatus');
+
+        // Variable para almacenar las claves actuales
+        let currentKeyPair = null;
+
+        // Función para copiar texto
+        document.querySelectorAll('.copy-button').forEach(button => {
+            button.addEventListener('click', () => {
+                const targetId = button.getAttribute('data-clipboard');
+                const targetElement = document.getElementById(targetId);
+                targetElement.select();
+                document.execCommand('copy');
+                
+                const originalText = button.textContent;
+                button.textContent = '¡Copiado!';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                }, 2000);
+            });
+        });
+
+        // Función para mostrar mensajes de estado
+        function showStatus(element, message, isError = false) {
+            element.textContent = message;
+            element.className = 'status-message ' + (isError ? 'error' : 'success');
+            setTimeout(() => {
+                element.textContent = '';
+                element.className = 'status-message';
+            }, 5000);
+        }
+
+        // Función para generar un par de claves
+        function generateKeyPair() {
+            // Generamos una clave maestra aleatoria
+            const masterKey = CryptoJS.lib.WordArray.random(32);
+            
+            // Creamos el par de claves
+            currentKeyPair = {
+                public: masterKey.toString(),
+                private: masterKey.toString(CryptoJS.enc.Base64)
+            };
+            
+            publicKeyTextarea.value = currentKeyPair.public;
+            privateKeyTextarea.value = currentKeyPair.private;
+
+            // Pre-llenamos los campos de encriptación/desencriptación
+            encryptKeyInput.value = currentKeyPair.public;
+            decryptKeyInput.value = currentKeyPair.private;
+
+            // Limpiar campos de mensaje y resultado
+            encryptMessageInput.value = '';
+            decryptMessageInput.value = '';
+            encryptedText.value = '';
+            decryptedText.value = '';
+
+            showStatus(encryptStatus, 'Nuevo par de claves generado exitosamente');
+            showStatus(decryptStatus, 'Nuevo par de claves generado exitosamente');
+        }
+
+        // Función para encriptar el mensaje
+        function encryptMessage() {
+            const message = encryptMessageInput.value.trim();
+            const publicKey = encryptKeyInput.value.trim();
+
+            if (!message) {
+                showStatus(encryptStatus, 'Por favor, ingresa un mensaje para encriptar', true);
+                return;
+            }
+
+            if (!publicKey) {
+                showStatus(encryptStatus, 'Por favor, ingresa una clave pública', true);
+                return;
+            }
+
+            try {
+                // Convertimos la clave pública a WordArray
+                const keyWordArray = CryptoJS.enc.Hex.parse(publicKey);
+                
+                // Encriptamos el mensaje
+                const encrypted = CryptoJS.AES.encrypt(message, keyWordArray, {
+                    mode: CryptoJS.mode.ECB,
+                    padding: CryptoJS.pad.Pkcs7
+                });
+
+                encryptedText.value = encrypted.toString();
+                showStatus(encryptStatus, '¡Mensaje encriptado exitosamente!');
+            } catch (error) {
+                showStatus(encryptStatus, 'Error al encriptar el mensaje. Verifica la clave pública.', true);
+                console.error(error);
+            }
+        }
+
+        // Función para desencriptar el mensaje
+        function decryptMessage() {
+            const encryptedMessage = decryptMessageInput.value.trim();
+            const privateKey = decryptKeyInput.value.trim();
+
+            if (!encryptedMessage) {
+                showStatus(decryptStatus, 'Por favor, ingresa un mensaje encriptado', true);
+                return;
+            }
+
+            if (!privateKey) {
+                showStatus(decryptStatus, 'Por favor, ingresa tu clave privada', true);
+                return;
+            }
+
+            try {
+                // Convertimos la clave privada de Base64 a WordArray
+                const keyWordArray = CryptoJS.enc.Base64.parse(privateKey);
+                
+                // Desencriptamos el mensaje
+                const decrypted = CryptoJS.AES.decrypt(encryptedMessage, keyWordArray, {
+                    mode: CryptoJS.mode.ECB,
+                    padding: CryptoJS.pad.Pkcs7
+                });
+
+                const originalMessage = decrypted.toString(CryptoJS.enc.Utf8);
+                
+                if (!originalMessage) {
+                    throw new Error('No se pudo desencriptar el mensaje');
+                }
+                
+                decryptedText.value = originalMessage;
+                showStatus(decryptStatus, '¡Mensaje desencriptado exitosamente!');
+            } catch (error) {
+                showStatus(decryptStatus, 'Error al desencriptar. Verifica que la clave privada corresponda al mensaje.', true);
+                console.error(error);
+            }
+        }
+
+        // Event listeners
+        generateKeysBtn.addEventListener('click', generateKeyPair);
+        encryptBtn.addEventListener('click', encryptMessage);
+        decryptBtn.addEventListener('click', decryptMessage);
+    </script>
+</body>
+</html>
